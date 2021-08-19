@@ -11,7 +11,7 @@ type
 
 
 proc readChar*(lexer: var Lexer) =
-    
+
     if lexer.readPosition >= len(lexer.input):
         lexer.ch = '\x00'
     else:
@@ -19,15 +19,20 @@ proc readChar*(lexer: var Lexer) =
 
     lexer.position = lexer.readPosition
     lexer.readPosition += 1
-    
+
 
 proc skipWhitespace*(lexer: var Lexer) =
     while lexer.ch in [' ', '\t', '\n', '\r']:
         lexer.readChar()
 
-proc back( lexer: var Lexer) = 
+proc back(lexer: var Lexer) =
     lexer.readPosition -= 1
     lexer.position -= 1
+
+proc peekChar*(lexer: Lexer): char =
+    if lexer.readPosition >= len(lexer.input):
+        return '\x00'
+    return lexer.input[lexer.readPosition]
 
 proc readIdentifier(lexer: var Lexer): Token =
     let position = lexer.position
@@ -38,28 +43,34 @@ proc readIdentifier(lexer: var Lexer): Token =
     let range = position..<lexer.position
     let literal = lexer.input[range]
     let kind = inferKind(literal)
-    
-    lexer.back()    
+
+    lexer.back()
     return Token.new(kind, literal)
 
 proc readNumber(lexer: var Lexer): Token =
     let position = lexer.position
-    
+
     while isDigit(lexer.ch):
         lexer.readChar()
     let range = position..<lexer.position
-    let literal = lexer.input[ range ]
+    let literal = lexer.input[range]
     lexer.back()
-    return Token.new( INT , literal)
+    return Token.new(INT, literal)
 
 proc readSingle*(lexer: var Lexer): Token =
 
     let currentCharacter = lexer.ch
-    
+
 
     return case currentCharacter:
+        of '\x00':
+            Token.new(EOF , "\x00")
         of '=':
-            Token.new(ASSIGN)
+            if lexer.peekChar() == '=':
+                lexer.readChar()
+                Token.new(EQ)
+            else:
+                Token.new(ASSIGN, )
         of ';':
             Token.new(SEMICOLON)
         of ',':
@@ -73,7 +84,11 @@ proc readSingle*(lexer: var Lexer): Token =
         of '/':
             Token.new(SLASH)
         of '!':
-            Token.new(BANG)
+            if lexer.peekChar == '=':
+                lexer.readChar()
+                Token.new(NOT_EQ)
+            else:
+                Token.new(BANG)            
         of '{':
             Token.new(LBRACE)
         of '}':
@@ -92,14 +107,12 @@ proc readSingle*(lexer: var Lexer): Token =
             elif currentCharacter.isDigit():
                 lexer.readNumber()
             else:
-                Token.new(ILLEGAL , $currentCharacter)
+                Token.new(ILLEGAL, $currentCharacter)
 
 proc readToken*(lexer: var Lexer): Token =
     readChar lexer
     skipWhitespace lexer
     let currentToken = readSingle(lexer)
-    
-    
     return currentToken
 
 proc new*(dispatcher: typedesc[Lexer], input: string): Lexer =

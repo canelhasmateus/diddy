@@ -1,6 +1,3 @@
-import monkey_tokens
-import monkey_lexer
-
 proc isLetter*(ch: char): bool =
 
     return ('a' <= ch and ch <= 'z') or
