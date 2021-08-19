@@ -35,6 +35,7 @@ type
         RETURN = "return"
         TRUE = "true"
 
+
     Token* = ref object
         kind*: TokenKind
         literal*: string
@@ -44,7 +45,7 @@ const
 
     keywords = {"fn": FUNCTION, "let": LET, "true": TRUE, "false": FALSE,
             "if": IF, "else": ELSE, "return": RETURN}.toTable()
-
+    
     constructs = {'=': ASSIGN,
  '*': ASTERIST,
  '!': BANG,
@@ -63,11 +64,13 @@ const
     SINGLES* = {'(', ')', ',', ';', '+', '-', '*', '<', '>', '{', '}', '\x00'}
 
 
-proc new*( dispatcher : typedesc[Token] , kind : TokenKind) : Token =
-    return Token( kind : kind , literal : $kind)
-    
+proc new*(dispatcher: typedesc[Token], kind: TokenKind): Token =
+    return new(dispatcher, kind, $kind)
 
-proc lookupKeyword*(identifier: string): TokenKind =
+proc new*(dispatcher: typedesc[Token], kind: TokenKind, literal: string): Token =
+    return Token(kind: kind, literal: literal)
+
+proc inferKind*(identifier: string): TokenKind =
 
     if keywords.hasKey(identifier):
         return keywords[identifier]
