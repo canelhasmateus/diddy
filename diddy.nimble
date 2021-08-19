@@ -7,6 +7,8 @@ license       = "MIT"
 srcDir        = "src"
 bin           = @["diddy"]
 
+backend       = "c"
+
 
 # Dependencies
 
