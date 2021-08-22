@@ -22,7 +22,6 @@ test "let statements":
 
     #let expected = ["x" , "y" , "foobar"]
 
-
 test "return statements":
 
     let input = """
@@ -37,5 +36,48 @@ test "return statements":
     check len(program.statements) == 3
     for statement in program.statements:
 
+        echo %statement
+
+test "identifier statements":
+    let input = """
+    5;
+    """
+
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == 1
+    for statement in program.statements:
+        echo %statement
+    
+test "prefix expressions":
+    let input = """
+    !5;
+    -15;
+    """
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == 2
+    for statement in program.statements:
+        echo %statement
+
+test "infix expressions":
+
+    let input = """
+    5 + 5;
+    5 - 5;
+    5 * 5;
+    5 / 5;
+    5 > 5
+    5 < 5
+    5 == 5
+    5 != 5
+    """
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == 8
+    for statement in program.statements:
         echo %statement
 

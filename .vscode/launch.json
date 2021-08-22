@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "nim: debug current file",
+            "preLaunchTask": "nimbuild",
+            "preRunCommands": [
+                "command script import --allow-reload ./.vscode/lldbnim.py"
+            ],
+            "program": "${workspaceFolder}/out/${fileBasenameNoExtension}.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "Debug Nim Project",
+            "type": "gdb",
+            "request": "launch",
+            "preLaunchTask": "nimbuild",
+            "target": "${workspaceFolder}/out/diddy",
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText"
+        }
+    ]
+}

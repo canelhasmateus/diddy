@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "nimbuild",
+            "type": "shell",
+            "command": "nim",
+            "args": [
+                "c",
+                "--debugger:native",
+                // "./src/diddy.nim"
+                // "./tests/test_parser.nim"
+                "${file}"
+            ],
+        }
+    ]
+}
