@@ -64,7 +64,7 @@ proc readSingle*(lexer: var Lexer): Token =
 
     return case currentCharacter:
         of '\x00':
-            Token.new(EOF , "\x00")
+            Token.new(EOF, "\x00")
         of '=':
             if lexer.peekChar() == '=':
                 lexer.readChar()
@@ -88,7 +88,7 @@ proc readSingle*(lexer: var Lexer): Token =
                 lexer.readChar()
                 Token.new(NOT_EQ)
             else:
-                Token.new(BANG)            
+                Token.new(BANG)
         of '{':
             Token.new(LBRACE)
         of '}':
