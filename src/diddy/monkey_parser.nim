@@ -21,7 +21,6 @@ type
         currentToken*: Token
         peekToken*: Token
 
-
     Program* = ref object of RootObj
         statements*: seq[Statement]
 
@@ -30,11 +29,16 @@ proc `%`*(expression: Expression): string =
     return "expression"
 
 proc `%`*(statement: Statement): string =
-    return statement.token.literal & " " & %statement.value
 
-proc new(dispatcher: typedesc[Program]): Program =
-    let program = Program(statements: @[])
-    return program
+    return case statement.kind:
+        of LET: 
+            "let " & statement.token.literal & " = " & %statement.value
+        of RETURN:
+            "return " & %statement.value
+        of SIMPLE:
+            statement.token.literal
+    
+
 
 # region Parser related
 proc new*(dispatcher: typedesc[Parser], lexer: Lexer): Parser =
@@ -43,15 +47,20 @@ proc new*(dispatcher: typedesc[Parser], lexer: Lexer): Parser =
     parser.nextToken()
     return parser
 
+proc currentKind(parser: Parser): TokenKind =
+    return parser.currentToken.kind
+proc peekKind(parser: Parser): TokenKind =
+    return parser.peekToken.kind
+
 proc nextToken*(parser: var Parser) =
     parser.currentToken = parser.peekToken
     parser.peekToken = parser.lexer.readToken()
 
 proc currentIs(parser: Parser, kind: TokenKind): bool =
-    return parser.currentToken.kind == kind
+    return parser.currentKind == kind
 
 proc peekIs(parser: Parser, kind: TokenKind): bool =
-    return parser.peekToken.kind == kind
+    return parser.peekKind == kind
 
 proc expectPeek(parser: var Parser, kind: TokenKind): bool =
     if parser.peekIs(kind):
@@ -60,8 +69,8 @@ proc expectPeek(parser: var Parser, kind: TokenKind): bool =
     return false
 
 # endregion
-# region Statement related
 
+# region Statement related
 proc new*(dispatcher: typedesc[Statement], kind: StatementKinds,
         token: Token): Statement =
     return Statement(kind: kind, token: token)
@@ -95,7 +104,6 @@ proc parseReturnStatement(parser: var Parser): Option[Statement] =
     let statement = Statement.new(RETURN, returnToken)
     return statement.some()
 
-
 proc parseSimpleStatement(parser: var Parser): Option[Statement] =
     let token = parser.currentToken
 
@@ -106,8 +114,8 @@ proc parseSimpleStatement(parser: var Parser): Option[Statement] =
     return statement.some()
 
 proc parseStatement(parser: var Parser): Option[Statement] =
-    let currentKind = parser.currentToken.kind
-    return case currentKind:
+
+    return case parser.currentKind:
         of TokenKind.LET:
             parser.parseLetStatement()
         of TokenKind.RETURN:
@@ -116,6 +124,10 @@ proc parseStatement(parser: var Parser): Option[Statement] =
             parser.parseSimpleStatement()
 # endregion
 
+# region Program related
+proc new(dispatcher: typedesc[Program]): Program =
+    let program = Program(statements: @[])
+    return program
 
 proc parseProgram*(parser: var Parser): Program =
     var program = Program.new()
@@ -127,3 +139,4 @@ proc parseProgram*(parser: var Parser): Program =
         parser.nextToken()
 
     return program
+# endregion
