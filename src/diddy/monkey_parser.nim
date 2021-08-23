@@ -59,18 +59,20 @@ proc `asString`*(expression: Expression): string =
         of {INTEGER_LITERAL, IDENTIFIER}:
             expression.token.literal
         of INFIX:
-            "infix"
+             expression.left.asString() & " " & expression.token.literal & " " &
+             expression.right.asString()
         of PREFIX:
-            "prefix"
+            expression.token.literal & expression.postfixed.asString()
 
 
 
 proc `asString`*(statement: Statement): string =
     return case statement.kind:
         of StatementKind.LET:
-            "let " & statement.token.literal & " = " & statement.expression.asString() & ";"
+            "let " & statement.token.literal & " = " &
+                    statement.expression.asString()
         of StatementKind.RETURN:
-            "return " & statement.expression.asString() & ";"
+            "return " & statement.expression.asString()
         of StatementKind.SIMPLE:
             statement.expression.asString()
 
@@ -136,9 +138,7 @@ proc currentPrecedence(parser: Parser): Precedence =
     return precedence(parser.currentToken)
 # endregion
 
-# region Debug related
 
-# endregion
 # region Expression related
 
 
@@ -183,6 +183,7 @@ proc parseIfExpression(parser: var Parser): Option[Expression] =
 
 proc parseInfixExpression(parser: var Parser, left: Expression): Option[Expression] =
 
+
     let currentToken = parser.currentToken
     let precedence = currentToken.precedence()
 
@@ -225,8 +226,10 @@ proc parseExpression(parser: var Parser, precedence: Precedence): Option[Express
         return Expression.none()
 
     while not parser.peekIs(SEMICOLON) and precedence < parser.peekPrecedence():
+        parser.nextToken()
+
         leftExpression = case parser.currentKind():
-            of {GT, LT, EQ, PLUS, EQ, NOT_EQ, ASTERIST}:
+            of {GT, LT, EQ, PLUS, EQ, NOT_EQ, ASTERIST , SLASH , MINUS} :
                 let left = leftExpression.get()
                 parser.parseInfixExpression(left)
             of {TRUE, FALSE}:
@@ -234,6 +237,7 @@ proc parseExpression(parser: var Parser, precedence: Precedence): Option[Express
             of IF:
                 parser.parseIfExpression()
             else:
+
                 parser.fallbackExpression()
 
     return leftExpression
@@ -275,18 +279,19 @@ proc parseLetStatement(parser: var Parser): Option[Statement] =
 
     let expression = parser.parseExpression(LOWEST)
 
-    let createStatement = (e: Expression) => Statement.newLetStatement(identifier, e)
+    let createStatement = (e: Expression) => Statement.newLetStatement(
+            identifier, e)
     let statement = expression.map(createStatement)
 
     return statement
 
 proc parseReturnStatement(parser: var Parser): Option[Statement] =
-    
+
     if not parser.currentIs(TokenKind.RETURN):
         return Statement.none()
-    
+
     parser.nextToken()
-    
+
     let expression = parser.parseExpression(LOWEST)
     let createStatement = (e: Expression) => Statement.newReturnStatement(e)
     return expression.map(createStatement)
