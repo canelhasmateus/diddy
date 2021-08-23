@@ -2,6 +2,7 @@ import diddy
 
 import unittest
 import strutils
+import sequtils
 
 test "let statements":
 
@@ -78,4 +79,25 @@ test "infix expressions":
     for index in 0..<expecteds.len:
         let expected = expecteds[index]
         let actual = program.statements[index]
+        check actual.asString() == "(" & expected & ")"
+
+proc first[K , V]( tupl : tuple[ a : K , b : V ]) : K =
+    return tupl[0]
+
+test "precedence expressions":
+
+    let equivalences = [("a + b / c" , "(a + (b / c))"), 
+    ( "a * b - c", "((a * b) - c)")]
+
+    
+    let input = equivalences.map( first ).join(";")
+    
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == equivalences.len()
+
+    for index in 0..<equivalences.len():
+        let expected = equivalences[index][1]
+        let actual = program.statements[index]        
         check actual.asString() == expected

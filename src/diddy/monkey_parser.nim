@@ -59,8 +59,8 @@ proc `asString`*(expression: Expression): string =
         of {INTEGER_LITERAL, IDENTIFIER}:
             expression.token.literal
         of INFIX:
-             expression.left.asString() & " " & expression.token.literal & " " &
-             expression.right.asString()
+             "(" & expression.left.asString() & " " & expression.token.literal & " " &
+             expression.right.asString() & ")"
         of PREFIX:
             expression.token.literal & expression.postfixed.asString()
 
