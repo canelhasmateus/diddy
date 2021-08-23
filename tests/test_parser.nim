@@ -1,44 +1,43 @@
 import diddy
-import json
+
 import unittest
-
-
+import strutils
 
 test "let statements":
 
-    let input = """
-    let x = 5;
-    let y = 10;
-    let foobar = 838383;
-    """
+    let expecteds = ["let x = 5;", "let y = 10;", "let foobar = 838383;"]
+    let input = join(expecteds, "")
 
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
     check len(program.statements) == 3
-
-    for element in program.statements:
-        echo %element
-
-    #let expected = ["x" , "y" , "foobar"]
+    
+    for i in 0..<expecteds.len():
+        let actual = program.statements[i]
+        let expected = expecteds[i]
+        
+        check actual.kind == StatementKind.LET
+        check actual.asString() == expected
 
 test "return statements":
 
-    let input = """
-    return 5;
-    return 10;
-    return 993322;
-    """
+
+    let expecteds = ["return 5;", "return 10;", "return 993322;"]
+    let input = join(expecteds, "")
 
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
     check len(program.statements) == 3
-    for statement in program.statements:
+    
+    for i in 0..<expecteds.len():
+        let actual = program.statements[i]
+        let expected = expecteds[i]
+        check actual.kind == StatementKind.RETURN
+        check actual.asString() == expected
 
-        echo %statement
-
-test "identifier statements":
+test "simple statements":
     let input = """
     5;
     """
@@ -48,8 +47,8 @@ test "identifier statements":
     let program = parser.parseProgram()
     check len(program.statements) == 1
     for statement in program.statements:
-        echo %statement
-    
+        echo statement.asString()
+
 test "prefix expressions":
     let input = """
     !5;
@@ -60,7 +59,7 @@ test "prefix expressions":
     let program = parser.parseProgram()
     check len(program.statements) == 2
     for statement in program.statements:
-        echo %statement
+        echo statement.asString()
 
 test "infix expressions":
 
@@ -79,5 +78,5 @@ test "infix expressions":
     let program = parser.parseProgram()
     check len(program.statements) == 8
     for statement in program.statements:
-        echo %statement
+        echo statement.asString()
 

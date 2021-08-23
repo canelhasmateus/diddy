@@ -6,7 +6,7 @@ import strutils
 
 type
 
-    Precedence = enum
+    Precedence* = enum
         LOWEST,
         EQUALS,
         LESSGREATER,
@@ -15,7 +15,7 @@ type
         OPERATOR,
         CALL
 
-    ExpressionKind = enum
+    ExpressionKind* = enum
         IDENTIFIER,
         INTEGER_LITERAL,
         PREFIX,
@@ -24,7 +24,6 @@ type
     Expression* = ref object of RootObj
 
         token: Token
-
         case kind: ExpressionKind:
             of INTEGER_LITERAL:
                 value: int
@@ -36,16 +35,14 @@ type
             of IDENTIFIER:
                 nil
 
-
-
 type
-    StatementKind = enum
-        LET, RETURN, SIMPLE
+    StatementKind* = enum
+        LET, SIMPLE, RETURN
 
     Statement* = ref object of RootObj
-        token: Token
-        kind: StatementKind
-        expression: Expression
+        token*: Token
+        kind*: StatementKind
+        expression*: Expression
 
 type
     Parser* = ref object of RootObj
@@ -57,27 +54,25 @@ type
         statements*: seq[Statement]
 
 
-proc `%`*(expression: Expression): string =
-    return "YEAH"
-# case expression.kind:
-#         of {INTEGER_LITERAL , IDENTIFIER}:
-#             expression.token.literal
-#         of INFIX:
-#             "infix"
-#         of PREFIX:
-#             "prefix"
-        
+proc `asString`*(expression: Expression): string =
+    return case expression.kind:
+        of {INTEGER_LITERAL, IDENTIFIER}:
+            expression.token.literal
+        of INFIX:
+            "infix"
+        of PREFIX:
+            "prefix"
 
 
-proc `%`*(statement: Statement): string =
 
+proc `asString`*(statement: Statement): string =
     return case statement.kind:
-        of LET:
-            "let " & statement.token.literal & " = " & %statement.expression
-        of RETURN:
-            "return " & %statement.expression
-        of SIMPLE:
-            statement.token.literal
+        of StatementKind.LET:
+            "let " & statement.token.literal & " = " & statement.expression.asString() & ";"
+        of StatementKind.RETURN:
+            "return " & statement.expression.asString() & ";"
+        of StatementKind.SIMPLE:
+            statement.expression.asString()
 
 
 
@@ -141,6 +136,9 @@ proc currentPrecedence(parser: Parser): Precedence =
     return precedence(parser.currentToken)
 # endregion
 
+# region Debug related
+
+# endregion
 # region Expression related
 
 
@@ -170,10 +168,6 @@ proc newInfix(dispatcher: typedesc[Expression], token: Token, left: Expression,
         right: Expression): Expression =
     let expression = Expression(token: token, kind: ExpressionKind.INFIX,
             left: left, right: right)
-    return expression
-
-proc new*(dispatcher: typedesc[Expression], kind: ExpressionKind): Expression =
-    let expression = Expression(kind: kind)
     return expression
 
 proc parseIntegerLiteralExpression(parser: var Parser): Option[Expression] =
@@ -246,51 +240,65 @@ proc parseExpression(parser: var Parser, precedence: Precedence): Option[Express
 # endregion
 
 # region Statement related
-proc new*(dispatcher: typedesc[Statement], kind: StatementKind,
-        token: Token): Statement =
-    return Statement(kind: kind, token: token)
+proc new*(dispatcher: typedesc[Statement], kind: StatementKind, token: Token,
+        expression: Expression): Statement =
+    let statement = Statement(token: token,
+    kind: kind,
+     expression: expression)
+    return statement
 
-proc new*(dispatcher: typedesc[Statement], kind: StatementKind,
-        token: Token, expression: Expression): Statement =
-    return Statement(kind: kind, token: token, expression: expression)
+proc newLetStatement*(dispatcher: typedesc[Statement], token: Token,
+        expression: Expression): Statement =
+    return Statement.new(StatementKind.LET, token, expression)
+
+proc newReturnStatement*(dispatcher: typedesc[Statement],
+        expression: Expression): Statement =
+    let token = Token.new(TokenKind.RETURN, "return")
+    return Statement.new(StatementKind.RETURN, token, expression)
+
+proc newSimpleStatement*(dispatcher: typedesc[Statement], token: Token,
+        expression: Expression): Statement =
+    return Statement.new(StatementKind.SIMPLE, token, expression)
 
 proc parseLetStatement(parser: var Parser): Option[Statement] =
 
     if not parser.expectPeek(IDENT):
         return Statement.none()
 
-    let letToken = parser.currentToken
+
+    let identifier = parser.currentToken
 
     if not parser.expectPeek(ASSIGN):
         return Statement.none()
 
-    while not parser.currentIs(SEMICOLON):
-        parser.nextToken()
+    parser.nextToken()
 
-    let statement: Statement = Statement.new(LET, letToken)
-    return statement.some()
+    let expression = parser.parseExpression(LOWEST)
+
+    let createStatement = (e: Expression) => Statement.newLetStatement(identifier, e)
+    let statement = expression.map(createStatement)
+
+    return statement
 
 proc parseReturnStatement(parser: var Parser): Option[Statement] =
-
+    
     if not parser.currentIs(TokenKind.RETURN):
         return Statement.none()
-
-    let returnToken = parser.currentToken
-
-    while not parser.currentIs(SEMICOLON):
-        parser.nextToken()
-
-    let statement = Statement.new(RETURN, returnToken)
-    return statement.some()
+    
+    parser.nextToken()
+    
+    let expression = parser.parseExpression(LOWEST)
+    let createStatement = (e: Expression) => Statement.newReturnStatement(e)
+    return expression.map(createStatement)
 
 proc parseSimpleStatement(parser: var Parser): Option[Statement] =
     let token = parser.currentToken
-    let expression = parser.parseExpression(OPERATOR)
+    let expression = parser.parseExpression(LOWEST)
 
     if parser.peekIs(SEMICOLON):
         parser.nextToken()
 
-    let createStatement = (e: Expression) => Statement.new(SIMPLE, token, e)
+    let createStatement = (e: Expression) => Statement.newSimpleStatement(token, e)
 
     return expression.map(createStatement)
 

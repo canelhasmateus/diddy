@@ -47,19 +47,20 @@ test "Basic Source":
              """
 
     let expected = [
-        ("let", LET), ("five", IDENT), ("=", ASSIGN), ("5", INT), (";",
+        ("let", TokenKind.LET), ("five", IDENT), ("=", ASSIGN), ("5", INT), (";",
                 SEMICOLON),
 
-         ("let", LET), ("ten", IDENT), ("=", ASSIGN), ("10", INT), (";",
+         ("let", TokenKind.LET), ("ten", IDENT), ("=", ASSIGN), ("10", INT), (";",
                  SEMICOLON),
 
-      ("let", LET), ("add", IDENT), ("=", ASSIGN), ("fn", FUNCTION), ("(",
+      ("let", TokenKind.LET), ("add", IDENT), ("=", ASSIGN), ("fn", FUNCTION), ("(",
               LPAREN), ("x", IDENT), (",", COMMA), ("y", IDENT), (")", RPAREN),
               ("{", LBRACE), ("x", IDENT), ("+", PLUS), ("y", IDENT), (";",
               SEMICOLON), ("}", RBRACE), (";", SEMICOLON),
 
-      ("let", LET), ("result", IDENT), ("=", ASSIGN),
-    ("add", IDENT), ("(", LPAREN), ("five", IDENT), (",", COMMA), ("ten", IDENT),
+      ("let", TokenKind.LET), ("result", IDENT), ("=", ASSIGN),
+    ("add", IDENT), ("(", LPAREN), ("five", IDENT), (",", COMMA), ("ten",
+            IDENT),
     (")", RPAREN), (";", SEMICOLON),
 
       ("!", BANG), ("-", MINUS), ("/", SLASH), ("*", ASTERIST), ("5", INT), (
@@ -69,9 +70,9 @@ test "Basic Source":
               SEMICOLON),
 
       ("if", IF), ("(", LPAREN), ("5", INT), ("<", LT), ("10", INT), (")",
-              RPAREN), ("{", LBRACE), ("return", RETURN), ("true", TRUE), (";",
+              RPAREN), ("{", LBRACE), ("return", TokenKind.RETURN), ("true", TRUE), (";",
               SEMICOLON), ("}", RBRACE), ("else", ELSE), ("{", LBRACE), (
-              "return", RETURN), ("false", FALSE), (";", SEMICOLON), ("}",
+              "return", TokenKind.RETURN), ("false", FALSE), (";", SEMICOLON), ("}",
               RBRACE),
 
       ("10", INT), ("==", EQ), ("10", INT), (";", SEMICOLON),
@@ -90,5 +91,4 @@ test "Basic Source":
         check currentToken of Token
         check currentToken.kind == expectedKind
         check currentToken.literal == expectedLiteral
-
 
