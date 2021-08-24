@@ -81,17 +81,18 @@ test "infix expressions":
         let actual = program.statements[index]
         check actual.asString() == "(" & expected & ")"
 
-proc first[K , V]( tupl : tuple[ a : K , b : V ]) : K =
+proc first[K, V](tupl: tuple[a: K, b: V]): K =
     return tupl[0]
 
 test "precedence expressions":
 
-    let equivalences = [("a + b / c" , "(a + (b / c))"), 
-    ( "a * b - c", "((a * b) - c)")]
+    let equivalences = [
+        ("a + b / c", "(a + (b / c))"),
+        ("a * b - c", "((a * b) - c)")]
 
-    
-    let input = equivalences.map( first ).join(";")
-    
+
+    let input = equivalences.map(first).join(";")
+
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
@@ -99,5 +100,5 @@ test "precedence expressions":
 
     for index in 0..<equivalences.len():
         let expected = equivalences[index][1]
-        let actual = program.statements[index]        
+        let actual = program.statements[index]
         check actual.asString() == expected
