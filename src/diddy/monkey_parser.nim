@@ -67,9 +67,11 @@ type
     Led* = (var Parser) -> Option[Expression]
     Nud* = (var Parser, Expression) -> Option[Expression]
 
+method asString*(expression: Expression): string {.base.}
+method asString*(self: Block): string
+method asString*(statement: Statement): string {.base.}
 # region debugging, reporting related
-
-method asString*(expression: Expression): string  {.base.} =
+method asString*(expression: Expression): string {.base.} =
     return case expression.kind:
         of {INTEGER_LITERAL, IDENTIFIER, BOOLEAN_LITERAL}:
             expression.token.literal
@@ -80,9 +82,14 @@ method asString*(expression: Expression): string  {.base.} =
         of PREFIX:
             expression.token.literal & expression.postfixed.asString()
         of CONDITIONAL:
-            "if " & expression.condition.asString() &
-            expression.consequence.asString()
+            let elseExpression = if expression.alternative.isNil():
+                 ""
+            else: " else" & expression.alternative.asString()
             
+            "if " & expression.condition.asString() &
+            expression.consequence.asString() & elseExpression
+
+
 
 method asString*(statement: Statement): string {.base.} =
     return case statement.kind:
@@ -95,6 +102,8 @@ method asString*(statement: Statement): string {.base.} =
             statement.expression.asString()
 
 method asString*(self: Block): string =
+    if self.isNil():
+        return ""
     return " { " & self.statements.map(asString).join(";\n") & " }"
 # endregion
 
@@ -202,9 +211,8 @@ proc newIf(cls: typedesc[Expression], condition: Expression, consequence: Block,
         alternative: Block): Expression =
     let token = Token.new(LPAREN)
     let expression = Expression(kind: CONDITIONAL, token: token,
-            condition: condition,
-
-consequence: consequence, alternative: alternative)
+            condition: condition, consequence: consequence,
+            alternative: alternative)
     return expression
 
 proc newIf(cls: typedesc[Expression], condition: Expression,
@@ -270,13 +278,13 @@ proc parseIfExpression(parser: var Parser): Option[Expression] =
 
     let condition = parser.parseExpression(LOWEST)
 
+    if condition.isNone():
+        return Expression.none()
+
     if not parser.expectPeek(RPAREN):
         return Expression.none()
 
     if not parser.expectPeek(LBRACE):
-        return Expression.none()
-
-    if condition.isNone():
         return Expression.none()
 
     let consequence = parser.parseBlockStatement()
@@ -284,7 +292,13 @@ proc parseIfExpression(parser: var Parser): Option[Expression] =
     if consequence.isNone():
         return Expression.none()
 
-    let expression = Expression.newIf(condition.get(), consequence.get())
+    let alternative = if parser.expectPeek(ELSE):
+                        parser.parseBlockStatement()
+                    else:
+                        Block.none()
+
+    let expression = Expression.newIf(condition.get(), consequence.get(),
+            alternative.get(nil))
     return expression.some()
 
 

@@ -63,7 +63,7 @@ test "prefix expressions":
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
-    check len(program.statements) == 2
+    check len(program.statements) == len( expects)
     for index in 0..<expects.len:
         let expected = expects[index]
         let actual = program.statements[index]
@@ -82,7 +82,7 @@ test "infix expressions":
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
-#    check len(program.statements) == 8
+    check len(program.statements) == len( expecteds)
 
     for index in 0..<expecteds.len:
         let expected = expecteds[index]
@@ -109,6 +109,7 @@ test "precedence expressions":
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
+
     check len(program.statements) == equivalences.len()
 
     for index in 0..<equivalences.len():
@@ -126,7 +127,7 @@ test "booleanExpressions":
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
 
-    check len(program.statements) == 2
+    check len(program.statements) == len( expecteds)
 
     for index in 0..<expecteds.len():
         let actual = program.statements[index]
@@ -138,12 +139,12 @@ test "booleanExpressions":
 
 test "if expressions":
 
-    let expecteds = ["if (x < y) { x }"]
+    let expecteds = ["if (x < y) { x }" , "if (x < y) { x } else { y }"]
     let input = join(expecteds, ";")
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
-    check len(program.statements) == 1
+    check len(program.statements) == len(expecteds)
 
     for index in 0..<expecteds.len():
         let actual = program.statements[index]
