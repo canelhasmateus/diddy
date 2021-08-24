@@ -3,6 +3,7 @@ import monkey_lexer
 import options
 import sugar
 import strutils
+import sequtils
 
 type
 
@@ -20,13 +21,15 @@ type
         INTEGER_LITERAL,
         BOOLEAN_LITERAL,
         PREFIX,
-        INFIX
+        INFIX,
+        CONDITIONAL
 
     Expression* = ref object of RootObj
 
         token: Token
-
         case kind*: ExpressionKind:
+            of {IDENTIFIER, BOOLEAN_LITERAL}:
+                nil
             of INTEGER_LITERAL:
                 value: int
             of INFIX:
@@ -34,18 +37,23 @@ type
                 right: Expression
             of PREFIX:
                 postfixed: Expression
-            of {IDENTIFIER, BOOLEAN_LITERAL}:
-                nil
- #todo implement syntax for leds and nuds.
- #
-type
+            of CONDITIONAL:
+                condition: Expression
+                consequence: Block
+                alternative: Block
+
+    Block* = ref object of Expression
+        statements: seq[Statement]
+
     StatementKind* = enum
-        LET, SIMPLE, RETURN
+        LET, RETURN, SIMPLE
 
     Statement* = ref object of RootObj
         token*: Token
         kind*: StatementKind
         expression*: Expression
+
+
 
 type
     Parser* = ref object of RootObj
@@ -60,7 +68,8 @@ type
     Nud* = (var Parser, Expression) -> Option[Expression]
 
 # region debugging, reporting related
-proc `asString`*(expression: Expression): string =
+
+method asString*(expression: Expression): string  {.base.} =
     return case expression.kind:
         of {INTEGER_LITERAL, IDENTIFIER, BOOLEAN_LITERAL}:
             expression.token.literal
@@ -70,8 +79,12 @@ proc `asString`*(expression: Expression): string =
             expression.right.asString() & ")"
         of PREFIX:
             expression.token.literal & expression.postfixed.asString()
+        of CONDITIONAL:
+            "if " & expression.condition.asString() &
+            expression.consequence.asString()
+            
 
-proc `asString`*(statement: Statement): string =
+method asString*(statement: Statement): string {.base.} =
     return case statement.kind:
         of StatementKind.LET:
             "let " & statement.token.literal & " = " &
@@ -80,9 +93,12 @@ proc `asString`*(statement: Statement): string =
             "return " & statement.expression.asString()
         of StatementKind.SIMPLE:
             statement.expression.asString()
+
+method asString*(self: Block): string =
+    return " { " & self.statements.map(asString).join(";\n") & " }"
 # endregion
 
-
+proc parseStatement(parser: var Parser): Option[Statement]
 # region Parser related
 
 proc new*(dispatcher: typedesc[Parser], lexer: Lexer): Parser =
@@ -160,6 +176,10 @@ proc newIntegerLiteral*(cls: typedesc[Expression],
         value: value)
     return expression
 
+proc new(cls: typedesc[Block]): Block =
+    let token = Token.new(LBRACE)
+    return Block(token: token, statements: @[])
+
 proc newPrefix(cls: typedesc[Expression],
 token: Token, postfixed: Expression): Expression =
 
@@ -177,12 +197,40 @@ proc newBooleanLiteral(cls: typedesc[Expression], token: Token): Expression =
     let expression = Expression(kind: BOOLEAN_LITERAL, token: token)
     return expression
 
+
+proc newIf(cls: typedesc[Expression], condition: Expression, consequence: Block,
+        alternative: Block): Expression =
+    let token = Token.new(LPAREN)
+    let expression = Expression(kind: CONDITIONAL, token: token,
+            condition: condition,
+
+consequence: consequence, alternative: alternative)
+    return expression
+
+proc newIf(cls: typedesc[Expression], condition: Expression,
+        consequence: Block): Expression =
+    return newIf(cls, condition, consequence, nil)
+
 # endregion
 
 
 
 
 # region leds
+
+proc parseBlockStatement(parser: var Parser): Option[Block] =
+    parser.nextToken()
+
+    let blk = Block.new()
+    let appendToBlock = (s: Statement) => blk.statements.add(s)
+
+    while not parser.currentIs(EOF) and not parser.currentIs(RBRACE):
+        let statement = parser.parseStatement()
+        statement.map(appendToBlock)
+        parser.nextToken()
+
+    return blk.some()
+
 proc parseIdentifierExpression(parser: var Parser): Option[Expression] =
     let currentToken = parser.currentToken
     let expression = Expression.newIdentifier(currentToken)
@@ -200,6 +248,12 @@ proc parseIntegerLiteralExpression(parser: var Parser): Option[Expression] =
     let expression = Expression.newIntegerLiteral(token)
     return expression.some()
 
+
+proc parseBooleanLiteralExpression(parser: var Parser): Option[Expression] =
+    let token = parser.currentToken
+    let expression = Expression.newBooleanLiteral(token)
+    return expression.some()
+
 proc parseGroupedExpression(parser: var Parser): Option[Expression] =
     parser.nextToken()
     let expression = parser.parseExpression(LOWEST)
@@ -207,10 +261,32 @@ proc parseGroupedExpression(parser: var Parser): Option[Expression] =
         return Expression.none()
     return expression
 
-proc parseBooleanLiteralExpression(parser: var Parser): Option[Expression] =
-    let token = parser.currentToken
-    let expression = Expression.newBooleanLiteral(token)
+proc parseIfExpression(parser: var Parser): Option[Expression] =
+
+    if not parser.expectPeek(LPAREN):
+        return Expression.none()
+
+    parser.nextToken() # consume the (
+
+    let condition = parser.parseExpression(LOWEST)
+
+    if not parser.expectPeek(RPAREN):
+        return Expression.none()
+
+    if not parser.expectPeek(LBRACE):
+        return Expression.none()
+
+    if condition.isNone():
+        return Expression.none()
+
+    let consequence = parser.parseBlockStatement()
+
+    if consequence.isNone():
+        return Expression.none()
+
+    let expression = Expression.newIf(condition.get(), consequence.get())
     return expression.some()
+
 
 proc new(dispatcher: typedesc[Led], token: TokenKind): Led =
     return case token:
@@ -224,6 +300,8 @@ proc new(dispatcher: typedesc[Led], token: TokenKind): Led =
             parseBooleanLiteralExpression
         of LPAREN:
             parseGroupedExpression
+        of IF:
+            parseIfExpression
         else:
             fallbackExpression
 # endregion
@@ -238,9 +316,6 @@ proc parseInfixExpression(parser: var Parser, left: Expression): Option[Expressi
     let create = (e: Expression) => Expression.newInfix(currentToken, left, e)
     return right.map(create)
 
-proc parseIfExpression(parser: var Parser): Option[Expression] =
-    return Expression.none()
-
 proc new(dispatcher: typedesc[Nud], token: TokenKind): Nud =
     return case token:
         of {GT, LT, EQ, PLUS, EQ, NOT_EQ, ASTERIST, SLASH, MINUS}:
@@ -251,10 +326,9 @@ proc new(dispatcher: typedesc[Nud], token: TokenKind): Nud =
         of IF:
             (parser: var Parser, _: Expression) => parseIfExpression(parser)
         of LPAREN:
-            (parser: var Parser , _: Expression) => parseGroupedExpression(parser)
+            (parser: var Parser, _: Expression) => parseGroupedExpression(parser)
         else:
             (parser: var Parser, _: Expression) => fallbackExpression(parser)
-
 # endregion
 
 proc parseExpression(parser: var Parser, precedence: Precedence): Option[Expression] =
@@ -263,8 +337,8 @@ proc parseExpression(parser: var Parser, precedence: Precedence): Option[Express
 
     let led = Led.new(leftKind)
     var leftExpression = led(parser)
-    
-    
+
+
 
     if leftExpression.isNone():
         return Expression.none()

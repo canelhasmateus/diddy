@@ -3,6 +3,7 @@ import diddy
 import unittest
 import strutils
 import sequtils
+import json
 
 test "let statements":
 
@@ -120,12 +121,11 @@ test "precedence expressions":
 test "booleanExpressions":
 
     let expecteds = ["true", "false"]
-
     let input = join(expecteds, ";")
-
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
+
     check len(program.statements) == 2
 
     for index in 0..<expecteds.len():
@@ -135,3 +135,24 @@ test "booleanExpressions":
         check actual.kind == SIMPLE
         check actual.expression.kind == BOOLEAN_LITERAL
         check actual.asString() == expected
+
+test "if expressions":
+
+    let expecteds = ["if (x < y) { x }"]
+    let input = join(expecteds, ";")
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == 1
+
+    for index in 0..<expecteds.len():
+        let actual = program.statements[index]
+        let expected = expecteds[index]
+
+        check actual.kind == SIMPLE
+        check actual.expression.kind == CONDITIONAL
+        check actual.asString() == expected
+
+
+
+
