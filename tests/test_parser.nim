@@ -35,6 +35,7 @@ test "return statements":
     for i in 0..<expecteds.len():
         let actual = program.statements[i]
         let expected = expecteds[i]
+
         check actual.kind == StatementKind.RETURN
         check actual.asString() == expected
 
@@ -48,6 +49,9 @@ test "simple statements":
     let program = parser.parseProgram()
     check len(program.statements) == 1
     for statement in program.statements:
+
+        check statement.kind == SIMPLE
+        check statement.expression.kind == INTEGER_LITERAL
         check statement.asString() == "5"
 
 test "prefix expressions":
@@ -62,6 +66,9 @@ test "prefix expressions":
     for index in 0..<expects.len:
         let expected = expects[index]
         let actual = program.statements[index]
+
+        check actual.kind == SIMPLE
+        check actual.expression.kind == PREFIX
         check actual.asString() == expected
 
 test "infix expressions":
@@ -79,6 +86,9 @@ test "infix expressions":
     for index in 0..<expecteds.len:
         let expected = expecteds[index]
         let actual = program.statements[index]
+
+        check actual.kind == SIMPLE
+        check actual.expression.kind == INFIX
         check actual.asString() == "(" & expected & ")"
 
 proc first[K, V](tupl: tuple[a: K, b: V]): K =
@@ -88,7 +98,9 @@ test "precedence expressions":
 
     let equivalences = [
         ("a + b / c", "(a + (b / c))"),
-        ("a * b - c", "((a * b) - c)")]
+        ("a * b - c", "((a * b) - c)"),
+        ("(a + b) / c", "((a + b) / c)"),
+        ]
 
 
     let input = equivalences.map(first).join(";")
@@ -101,4 +113,25 @@ test "precedence expressions":
     for index in 0..<equivalences.len():
         let expected = equivalences[index][1]
         let actual = program.statements[index]
+        check actual.kind == SIMPLE
+        check actual.asString() == expected
+
+
+test "booleanExpressions":
+
+    let expecteds = ["true", "false"]
+
+    let input = join(expecteds, ";")
+
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == 2
+
+    for index in 0..<expecteds.len():
+        let actual = program.statements[index]
+        let expected = expecteds[index]
+
+        check actual.kind == SIMPLE
+        check actual.expression.kind == BOOLEAN_LITERAL
         check actual.asString() == expected

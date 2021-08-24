@@ -18,13 +18,15 @@ type
     ExpressionKind* = enum
         IDENTIFIER,
         INTEGER_LITERAL,
+        BOOLEAN_LITERAL,
         PREFIX,
         INFIX
 
     Expression* = ref object of RootObj
 
         token: Token
-        case kind: ExpressionKind:
+
+        case kind*: ExpressionKind:
             of INTEGER_LITERAL:
                 value: int
             of INFIX:
@@ -32,7 +34,7 @@ type
                 right: Expression
             of PREFIX:
                 postfixed: Expression
-            of IDENTIFIER:
+            of {IDENTIFIER, BOOLEAN_LITERAL}:
                 nil
  #todo implement syntax for leds and nuds.
  #
@@ -60,7 +62,7 @@ type
 # region debugging, reporting related
 proc `asString`*(expression: Expression): string =
     return case expression.kind:
-        of {INTEGER_LITERAL, IDENTIFIER}:
+        of {INTEGER_LITERAL, IDENTIFIER, BOOLEAN_LITERAL}:
             expression.token.literal
         of INFIX:
             "(" & expression.left.asString() & " " & expression.token.literal &
@@ -143,13 +145,13 @@ proc fallbackExpression(parser: var Parser): Option[Expression] =
     return Expression.none()
 
 # region Expression Instantiation
-proc newIdentifier*(dispatcher: typedesc[Expression],
+proc newIdentifier*(cls: typedesc[Expression],
         token: Token): Expression =
 
     let expression = Expression(token: token, kind: ExpressionKind.IDENTIFIER)
     return expression
 
-proc newIntegerLiteral*(dispatcher: typedesc[Expression],
+proc newIntegerLiteral*(cls: typedesc[Expression],
         token: Token): Expression =
 
     let value = parseInt(token.literal)
@@ -158,18 +160,23 @@ proc newIntegerLiteral*(dispatcher: typedesc[Expression],
         value: value)
     return expression
 
-proc newPrefix(dispatcher: typedesc[Expression],
+proc newPrefix(cls: typedesc[Expression],
 token: Token, postfixed: Expression): Expression =
 
     let expression = Expression(token: token, kind: ExpressionKind.PREFIX,
             postfixed: postfixed)
     return expression
 
-proc newInfix(dispatcher: typedesc[Expression], token: Token, left: Expression,
+proc newInfix(cls: typedesc[Expression], token: Token, left: Expression,
         right: Expression): Expression =
     let expression = Expression(token: token, kind: ExpressionKind.INFIX,
             left: left, right: right)
     return expression
+
+proc newBooleanLiteral(cls: typedesc[Expression], token: Token): Expression =
+    let expression = Expression(kind: BOOLEAN_LITERAL, token: token)
+    return expression
+
 # endregion
 
 
@@ -193,21 +200,36 @@ proc parseIntegerLiteralExpression(parser: var Parser): Option[Expression] =
     let expression = Expression.newIntegerLiteral(token)
     return expression.some()
 
+proc parseGroupedExpression(parser: var Parser): Option[Expression] =
+    parser.nextToken()
+    let expression = parser.parseExpression(LOWEST)
+    if not parser.expectPeek(RPAREN):
+        return Expression.none()
+    return expression
+
+proc parseBooleanLiteralExpression(parser: var Parser): Option[Expression] =
+    let token = parser.currentToken
+    let expression = Expression.newBooleanLiteral(token)
+    return expression.some()
+
 proc new(dispatcher: typedesc[Led], token: TokenKind): Led =
     return case token:
         of {BANG, MINUS}:
-            Led(parsePrefixExpression)
+            Led parsePrefixExpression
         of IDENT:
             parseIdentifierExpression
         of INT:
             parseIntegerLiteralExpression
+        of {TRUE, FALSE}:
+            parseBooleanLiteralExpression
+        of LPAREN:
+            parseGroupedExpression
         else:
             fallbackExpression
 # endregion
 
 
 # region nuds
-
 proc parseInfixExpression(parser: var Parser, left: Expression): Option[Expression] =
     let currentToken = parser.currentToken
     let precedence = currentToken.precedence()
@@ -215,9 +237,6 @@ proc parseInfixExpression(parser: var Parser, left: Expression): Option[Expressi
     let right = parser.parseExpression(precedence)
     let create = (e: Expression) => Expression.newInfix(currentToken, left, e)
     return right.map(create)
-
-proc parseBooleanLiteralExpression(parser: var Parser): Option[Expression] =
-    return Expression.none()
 
 proc parseIfExpression(parser: var Parser): Option[Expression] =
     return Expression.none()
@@ -231,6 +250,8 @@ proc new(dispatcher: typedesc[Nud], token: TokenKind): Nud =
                     parseBooleanLiteralExpression(parser)
         of IF:
             (parser: var Parser, _: Expression) => parseIfExpression(parser)
+        of LPAREN:
+            (parser: var Parser , _: Expression) => parseGroupedExpression(parser)
         else:
             (parser: var Parser, _: Expression) => fallbackExpression(parser)
 
@@ -239,8 +260,11 @@ proc new(dispatcher: typedesc[Nud], token: TokenKind): Nud =
 proc parseExpression(parser: var Parser, precedence: Precedence): Option[Expression] =
 
     let leftKind = parser.currentKind()
+
     let led = Led.new(leftKind)
     var leftExpression = led(parser)
+    
+    
 
     if leftExpression.isNone():
         return Expression.none()
