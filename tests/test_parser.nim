@@ -63,7 +63,7 @@ test "prefix expressions":
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
-    check len(program.statements) == len( expects)
+    check len(program.statements) == len(expects)
     for index in 0..<expects.len:
         let expected = expects[index]
         let actual = program.statements[index]
@@ -82,7 +82,7 @@ test "infix expressions":
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
-    check len(program.statements) == len( expecteds)
+    check len(program.statements) == len(expecteds)
 
     for index in 0..<expecteds.len:
         let expected = expecteds[index]
@@ -127,7 +127,7 @@ test "booleanExpressions":
     var parser = Parser.new(lexer)
     let program = parser.parseProgram()
 
-    check len(program.statements) == len( expecteds)
+    check len(program.statements) == len(expecteds)
 
     for index in 0..<expecteds.len():
         let actual = program.statements[index]
@@ -139,7 +139,7 @@ test "booleanExpressions":
 
 test "if expressions":
 
-    let expecteds = ["if (x < y) { x }" , "if (x < y) { x } else { y }"]
+    let expecteds = ["if (x < y) { x }", "if (x < y) { x } else { y }"]
     let input = join(expecteds, ";")
     var lexer = Lexer.new(input)
     var parser = Parser.new(lexer)
@@ -152,6 +152,26 @@ test "if expressions":
 
         check actual.kind == SIMPLE
         check actual.expression.kind == CONDITIONAL
+        check actual.asString() == expected
+
+test "function literals":
+
+    let expecteds = ["fn( x ) { x }",
+    "fn( x, y ) { (x + y) }",
+            "fn( x, y, z ) { ((x + y) + z) }"]
+
+    let input = join(expecteds, ";")
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == len(expecteds)
+
+    for index in 0..<expecteds.len():
+        let actual = program.statements[index]
+        let expected = expecteds[index]
+
+        check actual.kind == SIMPLE
+        check actual.expression.kind == FUNCTION_LITERAL
         check actual.asString() == expected
 
 

@@ -22,7 +22,8 @@ type
         BOOLEAN_LITERAL,
         PREFIX,
         INFIX,
-        CONDITIONAL
+        CONDITIONAL,
+        FUNCTION_LITERAL
 
     Expression* = ref object of RootObj
 
@@ -41,6 +42,9 @@ type
                 condition: Expression
                 consequence: Block
                 alternative: Block
+            of FUNCTION_LITERAL:
+                parameters: seq[Token]
+                body: Block
 
     Block* = ref object of Expression
         statements: seq[Statement]
@@ -52,8 +56,6 @@ type
         token*: Token
         kind*: StatementKind
         expression*: Expression
-
-
 
 type
     Parser* = ref object of RootObj
@@ -85,11 +87,14 @@ method asString*(expression: Expression): string {.base.} =
             let elseExpression = if expression.alternative.isNil():
                  ""
             else: " else" & expression.alternative.asString()
-            
+
             "if " & expression.condition.asString() &
             expression.consequence.asString() & elseExpression
-
-
+        of FUNCTION_LITERAL:
+            let st = ( t : Token ) => t.literal
+            "fn( " &
+            expression.parameters.map( st ).join(", ") &
+                " )" & expression.body.asString()
 
 method asString*(statement: Statement): string {.base.} =
     return case statement.kind:
@@ -185,6 +190,15 @@ proc newIntegerLiteral*(cls: typedesc[Expression],
         value: value)
     return expression
 
+proc newFunctionLiteral*(cls: typedesc[Expression], parameters: seq[Token],
+        body: Block): Expression =
+
+    let token = Token.new(FUNCTION)
+    let expression = Expression(kind: FUNCTION_LITERAL,
+     token: token, parameters: parameters, body: body)
+    return expression
+
+
 proc new(cls: typedesc[Block]): Block =
     let token = Token.new(LBRACE)
     return Block(token: token, statements: @[])
@@ -230,11 +244,12 @@ proc parseBlockStatement(parser: var Parser): Option[Block] =
     parser.nextToken()
 
     let blk = Block.new()
-    let appendToBlock = (s: Statement) => blk.statements.add(s)
 
     while not parser.currentIs(EOF) and not parser.currentIs(RBRACE):
         let statement = parser.parseStatement()
-        statement.map(appendToBlock)
+        if statement.isSome():
+            blk.statements.add(statement.get())
+
         parser.nextToken()
 
     return blk.some()
@@ -248,8 +263,11 @@ proc parsePrefixExpression(parser: var Parser): Option[Expression] =
     let currentToken = parser.currentToken
     parser.nextToken()
     let rightExpression = parser.parseExpression(OPERATOR)
-    let create = (e: Expression) => Expression.newPrefix(currentToken, e)
-    return rightExpression.map(create)
+
+    if rightExpression.isSome():
+        let expression = Expression.newPrefix(currentToken, rightExpression.get())
+        return expression.some()
+    return Expression.none()
 
 proc parseIntegerLiteralExpression(parser: var Parser): Option[Expression] =
     let token = parser.currentToken
@@ -302,6 +320,47 @@ proc parseIfExpression(parser: var Parser): Option[Expression] =
     return expression.some()
 
 
+proc parseFunctionParameters(parser: var Parser): seq[Token] =
+    var result: seq[Token] = @[]
+
+    if parser.expectPeek(RPAREN):
+        return result
+
+    parser.nextToken()
+
+    var identifier = Token.new(parser.currentToken.kind,
+            parser.currentToken.literal)
+    result.add(identifier)
+
+    while parser.expectPeek(COMMA):
+        parser.nextToken()
+        var identifier = Token.new(parser.currentToken.kind,
+                parser.currentToken.literal)
+        result.add(identifier)
+
+    if not parser.expectPeek(RPAREN):
+        return @[]
+
+    return result
+
+proc parseFunctionLiteral(parser: var Parser): Option[Expression] =
+
+    if not parser.expectPeek(LPAREN):
+        return Expression.none()
+
+    let parameters = parser.parseFunctionParameters()
+
+    if not parser.expectPeek(LBRACE):
+        return Expression.none()
+
+    let body = parser.parseBlockStatement()
+
+    if body.isNone():
+        return Expression.none()
+
+    let expression = Expression.newFunctionLiteral(parameters, body.get())
+    return expression.some()
+
 proc new(dispatcher: typedesc[Led], token: TokenKind): Led =
     return case token:
         of {BANG, MINUS}:
@@ -316,6 +375,8 @@ proc new(dispatcher: typedesc[Led], token: TokenKind): Led =
             parseGroupedExpression
         of IF:
             parseIfExpression
+        of FUNCTION:
+            parseFunctionLiteral
         else:
             fallbackExpression
 # endregion
@@ -327,8 +388,10 @@ proc parseInfixExpression(parser: var Parser, left: Expression): Option[Expressi
     let precedence = currentToken.precedence()
     parser.nextToken()
     let right = parser.parseExpression(precedence)
-    let create = (e: Expression) => Expression.newInfix(currentToken, left, e)
-    return right.map(create)
+    if right.isSome():
+        let expression = Expression.newInfix(currentToken, left, right.get())
+        return expression.some()
+    return Expression.none()
 
 proc new(dispatcher: typedesc[Nud], token: TokenKind): Nud =
     return case token:
@@ -351,8 +414,6 @@ proc parseExpression(parser: var Parser, precedence: Precedence): Option[Express
 
     let led = Led.new(leftKind)
     var leftExpression = led(parser)
-
-
 
     if leftExpression.isNone():
         return Expression.none()
@@ -455,11 +516,14 @@ proc new(dispatcher: typedesc[Program]): Program =
 
 proc parseProgram*(parser: var Parser): Program =
     var program = Program.new()
-    let append = (element: Statement) => program.statements.add(element)
+
 
     while not parser.currentIs(EOF):
         let statement = parser.parseStatement()
-        statement.map(append)
+
+        if statement.isSome():
+            program.statements.add(statement.get())
+
         parser.nextToken()
 
     return program
