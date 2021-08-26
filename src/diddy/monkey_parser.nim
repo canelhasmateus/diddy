@@ -4,7 +4,7 @@ import options
 import sugar
 import strutils
 import sequtils
-
+import json
 type
 
     Precedence* = enum
@@ -49,6 +49,11 @@ type
     Block* = ref object of Expression
         statements: seq[Statement]
 
+    CallExpression* = ref object of Expression
+        function: Expression
+        arguments: seq[Expression]
+
+
     StatementKind* = enum
         LET, RETURN, SIMPLE
 
@@ -68,6 +73,7 @@ type
 
     Led* = (var Parser) -> Option[Expression]
     Nud* = (var Parser, Expression) -> Option[Expression]
+
 
 method asString*(expression: Expression): string {.base.}
 method asString*(self: Block): string
@@ -91,10 +97,11 @@ method asString*(expression: Expression): string {.base.} =
             "if " & expression.condition.asString() &
             expression.consequence.asString() & elseExpression
         of FUNCTION_LITERAL:
-            let st = ( t : Token ) => t.literal
+            let st = (t: Token) => t.literal
             "fn( " &
-            expression.parameters.map( st ).join(", ") &
+            expression.parameters.map(st).join(", ") &
                 " )" & expression.body.asString()
+
 
 method asString*(statement: Statement): string {.base.} =
     return case statement.kind:
@@ -110,6 +117,14 @@ method asString*(self: Block): string =
     if self.isNil():
         return ""
     return " { " & self.statements.map(asString).join(";\n") & " }"
+
+method asString*(self: CallExpression): string =
+
+    let st = (e: Expression) => asString(e)
+    let argRepr = self.arguments.map(st).join(", ")
+
+    return self.function.asString() & "(" & argRepr & ")"
+
 # endregion
 
 proc parseStatement(parser: var Parser): Option[Statement]
@@ -142,6 +157,12 @@ proc expectPeek(parser: var Parser, kind: TokenKind): bool =
         parser.nextToken()
         return true
     return false
+
+proc expectCurrent( parser : var Parser, kind : TokenKind) : bool = 
+    if parser.currentIs(kind):
+        parser.nextToken()
+        return true
+    return false
 # endregion
 
 # region Precedence related
@@ -159,6 +180,8 @@ proc precedence(token: TokenKind): Precedence =
             PRODUCT
         of {BANG}:
             OPERATOR
+        of LPAREN:
+            CALL
         else:
             LOWEST
 
@@ -198,7 +221,6 @@ proc newFunctionLiteral*(cls: typedesc[Expression], parameters: seq[Token],
      token: token, parameters: parameters, body: body)
     return expression
 
-
 proc new(cls: typedesc[Block]): Block =
     let token = Token.new(LBRACE)
     return Block(token: token, statements: @[])
@@ -220,7 +242,6 @@ proc newBooleanLiteral(cls: typedesc[Expression], token: Token): Expression =
     let expression = Expression(kind: BOOLEAN_LITERAL, token: token)
     return expression
 
-
 proc newIf(cls: typedesc[Expression], condition: Expression, consequence: Block,
         alternative: Block): Expression =
     let token = Token.new(LPAREN)
@@ -233,12 +254,9 @@ proc newIf(cls: typedesc[Expression], condition: Expression,
         consequence: Block): Expression =
     return newIf(cls, condition, consequence, nil)
 
+proc new(cls: type CallExpression, call: Expression , arguments : seq[Expression]): CallExpression =
+    return CallExpression(token: call.token, function: call , arguments : arguments)
 # endregion
-
-
-
-
-# region leds
 
 proc parseBlockStatement(parser: var Parser): Option[Block] =
     parser.nextToken()
@@ -273,7 +291,6 @@ proc parseIntegerLiteralExpression(parser: var Parser): Option[Expression] =
     let token = parser.currentToken
     let expression = Expression.newIntegerLiteral(token)
     return expression.some()
-
 
 proc parseBooleanLiteralExpression(parser: var Parser): Option[Expression] =
     let token = parser.currentToken
@@ -319,13 +336,12 @@ proc parseIfExpression(parser: var Parser): Option[Expression] =
             alternative.get(nil))
     return expression.some()
 
-
 proc parseFunctionParameters(parser: var Parser): seq[Token] =
-    var result: seq[Token] = @[]
-
-    if parser.expectPeek(RPAREN):
+    var result: seq[Token] = @[ ]
+    
+    if parser.expectCurrent(RPAREN):
         return result
-
+    
     parser.nextToken()
 
     var identifier = Token.new(parser.currentToken.kind,
@@ -359,6 +375,37 @@ proc parseFunctionLiteral(parser: var Parser): Option[Expression] =
         return Expression.none()
 
     let expression = Expression.newFunctionLiteral(parameters, body.get())
+    return expression.some()
+
+proc parseCallArguments(parser: var Parser): seq[Expression] =
+
+    
+    var result: seq[Expression] = @[ ]
+    
+    if not parser.expectCurrent(LPAREN):
+        return result
+
+    var expression = parser.parseExpression(LOWEST)
+    if expression.isSome():
+        result.add(expression.get())
+
+    while parser.expectPeek(COMMA):
+        parser.nextToken()
+        expression = parser.parseExpression(LOWEST)
+        if expression.isSome():
+            result.add(expression.get())
+
+    if not parser.expectPeek(RPAREN):
+        return @[]
+
+    return result
+
+proc parseCallExpression(parser: var Parser, expression: Expression): Option[Expression] =
+
+    let arguments = parser.parseCallArguments()
+
+
+    let expression: Expression = CallExpression.new(expression , arguments)
     return expression.some()
 
 proc new(dispatcher: typedesc[Led], token: TokenKind): Led =
@@ -403,7 +450,7 @@ proc new(dispatcher: typedesc[Nud], token: TokenKind): Nud =
         of IF:
             (parser: var Parser, _: Expression) => parseIfExpression(parser)
         of LPAREN:
-            (parser: var Parser, _: Expression) => parseGroupedExpression(parser)
+            (parser: var Parser, e: Expression) => parseCallExpression(parser, e)
         else:
             (parser: var Parser, _: Expression) => fallbackExpression(parser)
 # endregion

@@ -174,6 +174,19 @@ test "function literals":
         check actual.expression.kind == FUNCTION_LITERAL
         check actual.asString() == expected
 
+test "Call expression":
 
+    let expecteds = ["add(1, (2 * 3), (4 + 5))"]
 
+    let input = join(expecteds, ";")
+    var lexer = Lexer.new(input)
+    var parser = Parser.new(lexer)
+    let program = parser.parseProgram()
+    check len(program.statements) == len(expecteds)
+    for index in 0..<expecteds.len():
+        let actual = program.statements[index]
+        let expected = expecteds[index]
+        check actual.kind == SIMPLE
+        check actual.expression of CallExpression
+        check actual.asString() == expected
 
