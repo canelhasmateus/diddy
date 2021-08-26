@@ -1,8 +1,4 @@
-import "./diddy"/[monkey_tokens, monkey_lexer , monkey_repl , monkey_parser]
+import "./diddy"/[ diddy_parser , diddy_lexer]
 
-
-
-export monkey_lexer
-export monkey_tokens
-export monkey_repl
-export monkey_parser
+export diddy_parser
+export diddy_lexer

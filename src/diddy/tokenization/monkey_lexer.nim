@@ -1,5 +1,4 @@
 import monkey_tokens
-import parse_utils
 
 type
     Lexer* = ref object of RootObj
@@ -9,6 +8,14 @@ type
         ch*: char
 
 
+proc isLetter*(ch: char): bool =
+
+    return ('a' <= ch and ch <= 'z') or
+           ('A' <= ch and ch <= 'Z') or
+            ch == '_'
+
+proc isDigit*(ch: char): bool =
+    return '0' <= ch and ch <= '9'
 
 proc readChar*(lexer: var Lexer) =
 
@@ -19,7 +26,6 @@ proc readChar*(lexer: var Lexer) =
 
     lexer.position = lexer.readPosition
     lexer.readPosition += 1
-
 
 proc skipWhitespace*(lexer: var Lexer) =
     while lexer.ch in [' ', '\t', '\n', '\r']:

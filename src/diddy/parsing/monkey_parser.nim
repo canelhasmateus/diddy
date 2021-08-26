@@ -1,5 +1,4 @@
-import monkey_tokens
-import monkey_lexer
+import ".."/[ diddy_lexer]
 import options
 import sugar
 import strutils
@@ -575,4 +574,3 @@ proc parseProgram*(parser: var Parser): Program =
 
     return program
 # endregion
-
