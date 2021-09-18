@@ -1,43 +1,44 @@
-import ".."/diddy_lexer
 import sugar
 
 type
 
+    Source* = object of RootObj
+        value: string
 
-    Route* = object of RootObj
-    Plan* = object of RootObj
 
-    Plannable = concept x
-        x >> Route is Plan
-        x >> Plan is Plannable
+proc `[]`*(source: Source, range: HSlice[int, int]): string =
+    return source.value[range]
+
+proc len*(source: Source): int =
+    return len(source.value)
+
+proc new*(cls: type Source, value: string): Source =
+    return Source(value: value)
+
+
+###
 
 type
+    Plan*[T] = object of RootObj
+        step*: int
+        produce*: T
+
+
 
     Parser* = object of RootObj
-        pos*: int
-        source*: string
-
-    ParserRoute* = object of Route
-        size*: int
-
-    ParserPlan* = object of Plan
-        state*: Parser
+        offset*: int
+        source*: Source
 
 
+proc new*(parser: type Parser, offset: int, source: Source): Parser =
+    return Parser(offset: offset, source: source)
+
+proc new*(parser: type Parser, source: Source): Parser =
+    return Parser.new(0, source)
 
 
-method `>>`*(state: Parser, route: ParserRoute): ParserPlan {.base.} =
-    return ParserPlan(state: state)
+method route*[T](state: Parser, planner: (Source) -> Plan[T]): Plan[T] {.base.} =
+    return planner(state.source)
 
-method `>>`*(state: Parser, plan: ParserPlan): Parser {.base.} =
-    return plan.state
 
-method `>>`*(before : ParserPlan, after : ParserRoute ) : auto =
-    return before.state >> after
-
-proc new*( parser : type Parser  , source  : string ) : Parser =
-    return Parser(pos: 0, source: source)
 ##
-
-
-

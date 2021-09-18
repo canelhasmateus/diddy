@@ -1,40 +1,44 @@
 import monkey_expressions
+import sugar
 
 type
-    CharRoute = object of ParserRoute
+    CharPlanner = object
+        start: int
+        size: int
 
-    CharPlan* = object of ParserPlan
-        product*: string
-
-proc new(cls: type CharRoute, size: int): auto =
-    return CharRoute(size: size)
+    CharPlan* = object of Plan[string]
 
 
-method `>>`(parser: Parser, route: CharRoute): auto =
+proc new(cls: type CharPlan, step: int, produce: string): CharPlan =
+    return CharPlan(step: step, produce: produce)
+
+proc new(cls: type CharPlanner, start: int, size: int): CharPlanner =
+    return CharPlanner(start: start, size: size)
+
+proc plan(planner: CharPlanner, source: Source): CharPlan =
 
     let
-        oldPos = parser.pos
-        maxLenght = len(parser.source)
-        newPos = min(parser.pos + route.size, maxLenght)
+        length = len(source)
+        finish = min(length, planner.start + planner.size)
+        size = finish - planner.start
+        range = planner.start ..< finish
+        produce = source[range]
 
-        newParser = Parser(source: parser.source, pos: newPos)
-        range = oldPos..<newParser.pos
-        product = parser.source[range]
+    return CharPlan.new(size, produce)
 
-    return CharPlan(state: newParser, product: product)
+proc step(planner: CharPlanner): ( Source ) -> Plan[string] =
+    return (s: Source) => planner.plan(s)
 
 when isMainModule:
 
-    let source = "abcde"
-    let route = CharRoute.new(0)
+    let source = Source.new("abcde")
+    let planner = CharPlanner.new(0, 1)
     let parser = Parser.new(source)
 
-    let output = parser >> route
+    let charPlan = planner.step()(parser.source)
 
-    echo output.product
-
+    echo charPlan
     echo parser
-    echo output.state
 
 
 
